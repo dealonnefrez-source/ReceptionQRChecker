@@ -9,6 +9,7 @@ from typing import Any, Iterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
@@ -234,6 +235,12 @@ def issue_qr(request: IssueQrRequest) -> IssueQrResponse:
         match_id=request.match_id,
         issued_at=issued_at,
     )
+
+
+@app.post("/api/qr/issue-code", response_class=PlainTextResponse)
+def issue_qr_code_plain(request: IssueQrRequest) -> str:
+    issued = issue_qr(request)
+    return issued.code
 
 
 @app.post("/api/qr/redeem", response_model=QrResponse)
