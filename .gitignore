@@ -1,0 +1,11 @@
+# Python backend secrets and artifacts
+backend/.env
+backend/data/
+backend/__pycache__/
+*.sqlite3
+
+# Android/Gradle
+.gradle/
+build/
+app/build/
+local.properties
