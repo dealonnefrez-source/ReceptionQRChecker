@@ -90,6 +90,14 @@ class HealthResponse(BaseModel):
     database_backend: str
 
 
+class ScanStatsResponse(BaseModel):
+    redeemed_codes_count: int
+    redeemed_points_total: int
+    total_scan_attempts: int
+    duplicate_scan_attempts: int
+    invalid_scan_attempts: int
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -179,6 +187,42 @@ def health() -> HealthResponse:
         status="ok",
         database_url=engine.url.render_as_string(hide_password=True),
         database_backend=database_backend_name(),
+    )
+
+
+@app.get("/api/stats", response_model=ScanStatsResponse)
+def get_scan_stats() -> ScanStatsResponse:
+    with db_transaction() as connection:
+        qr_codes_stats = connection.execute(
+            text(
+                """
+                SELECT
+                    COUNT(*) AS redeemed_codes_count,
+                    COALESCE(SUM(points), 0) AS redeemed_points_total
+                FROM qr_codes
+                WHERE status = 'used'
+                """
+            )
+        ).mappings().one()
+
+        scan_logs_stats = connection.execute(
+            text(
+                """
+                SELECT
+                    COUNT(*) AS total_scan_attempts,
+                    COALESCE(SUM(CASE WHEN result = 'already_used' THEN 1 ELSE 0 END), 0) AS duplicate_scan_attempts,
+                    COALESCE(SUM(CASE WHEN result = 'invalid' THEN 1 ELSE 0 END), 0) AS invalid_scan_attempts
+                FROM scan_logs
+                """
+            )
+        ).mappings().one()
+
+    return ScanStatsResponse(
+        redeemed_codes_count=int(qr_codes_stats["redeemed_codes_count"]),
+        redeemed_points_total=int(qr_codes_stats["redeemed_points_total"]),
+        total_scan_attempts=int(scan_logs_stats["total_scan_attempts"]),
+        duplicate_scan_attempts=int(scan_logs_stats["duplicate_scan_attempts"]),
+        invalid_scan_attempts=int(scan_logs_stats["invalid_scan_attempts"]),
     )
 
 

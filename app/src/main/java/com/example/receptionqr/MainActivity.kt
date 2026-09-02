@@ -1,6 +1,7 @@
 package com.example.receptionqr
 
 import android.Manifest
+import android.app.AlertDialog
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.pm.PackageManager
@@ -29,10 +30,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.io.IOException
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -43,13 +47,22 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var cameraExecutor: ExecutorService
-    private val okHttpClient = OkHttpClient()
+    private val okHttpClient = OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(75, TimeUnit.SECONDS)
+        .writeTimeout(20, TimeUnit.SECONDS)
+        .callTimeout(90, TimeUnit.SECONDS)
+        .build()
     private var isScanningLocked = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        warmUpBackend()
+        binding.statsButton.setOnClickListener {
+            loadStats()
+        }
 
         cameraExecutor = Executors.newSingleThreadExecutor()
 
@@ -66,6 +79,27 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this, "Nadaj uprawnienie do kamery", Toast.LENGTH_LONG).show()
                 }
             }.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    private fun warmUpBackend() {
+        val redeemUrl = BuildConfig.API_URL.toHttpUrlOrNull() ?: return
+        val healthUrl = redeemUrl.newBuilder()
+            .encodedPath("/health")
+            .query(null)
+            .build()
+
+        val request = Request.Builder()
+            .url(healthUrl)
+            .get()
+            .build()
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                okHttpClient.newCall(request).execute().close()
+            } catch (_: Exception) {
+                // Warmup is best-effort only.
+            }
         }
     }
 
@@ -136,6 +170,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun validateCode(code: String) {
+        showResult("Łączenie z serwerem...", "#333333")
+
         val payload = JSONObject().apply {
             put("code", code)
             put("staff_id", "recepcja_1")
@@ -191,6 +227,74 @@ class MainActivity : AppCompatActivity() {
                 showResult("Brak połączenia z serwerem", ERROR_RED)
             } finally {
                 unlockScanningLater()
+            }
+        }
+    }
+
+    private fun loadStats() {
+        showResult("Pobieranie statystyk...", "#333333")
+
+        val redeemUrl = BuildConfig.API_URL.toHttpUrlOrNull()
+        if (redeemUrl == null) {
+            showResult("Błąd konfiguracji statystyk", ERROR_RED)
+            return
+        }
+
+        val statsUrl = redeemUrl.newBuilder()
+            .encodedPath("/api/stats")
+            .query(null)
+            .build()
+
+        val request = Request.Builder()
+            .url(statsUrl)
+            .get()
+            .build()
+
+        lifecycleScope.launch {
+            try {
+                val responseBody = withContext(Dispatchers.IO) {
+                    okHttpClient.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) {
+                            throw IOException("HTTP ${response.code}")
+                        }
+                        response.body?.string().orEmpty()
+                    }
+                }
+
+                val json = JSONObject(responseBody)
+                val redeemedCodesCount = json.optInt("redeemed_codes_count", 0)
+                val redeemedPointsTotal = json.optInt("redeemed_points_total", 0)
+                val totalScanAttempts = json.optInt("total_scan_attempts", 0)
+                val duplicateScanAttempts = json.optInt("duplicate_scan_attempts", 0)
+                val invalidScanAttempts = json.optInt("invalid_scan_attempts", 0)
+
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Statystyki skanów")
+                    .setMessage(
+                        buildString {
+                            append("Unikalnie zeskanowane kody: ")
+                            append(redeemedCodesCount)
+                            append("\n")
+                            append("Suma punktów: ")
+                            append(redeemedPointsTotal)
+                            append("\n")
+                            append("Wszystkie próby skanu: ")
+                            append(totalScanAttempts)
+                            append("\n")
+                            append("Duplikaty: ")
+                            append(duplicateScanAttempts)
+                            append("\n")
+                            append("Nieprawidłowe kody: ")
+                            append(invalidScanAttempts)
+                        }
+                    )
+                    .setPositiveButton("OK", null)
+                    .show()
+
+                showResult("Skanuj QR kamerą", "#CC000000")
+            } catch (exception: Exception) {
+                Log.e("QR", "Błąd pobierania statystyk", exception)
+                showResult("Nie udało się pobrać statystyk", ERROR_RED)
             }
         }
     }
