@@ -59,10 +59,10 @@ class StatsListTests(unittest.TestCase):
         self.assertNotIn("redeemed_points_total", payload)
 
         players = payload["scanned_players"]
-        self.assertEqual([entry["rank"] for entry in players], [1, 2])
-        self.assertEqual([entry["player_id"] for entry in players], ["player_01", "player_02"])
-        self.assertEqual([entry["points"] for entry in players], [50, 30])
-        self.assertEqual(len(players), 2)
+        self.assertEqual([entry["rank"] for entry in players], [1, 2, 3])
+        self.assertEqual([entry["player_id"] for entry in players], ["player_01", "player_01", "player_02"])
+        self.assertEqual([entry["points"] for entry in players], [50, 50, 30])
+        self.assertEqual(len(players), 3)
 
 
 if __name__ == "__main__":

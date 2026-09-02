@@ -206,17 +206,15 @@ def get_scan_stats() -> ScanStatsResponse:
             )
         ).mappings().all()
 
-    seen_players: set[str] = set()
     scanned_players: list[ScannedPlayerStat] = []
-    for row in valid_scans:
+    for index, row in enumerate(valid_scans):
         player_id = str(row["player_id"]) if row["player_id"] is not None else ""
-        if not player_id or player_id in seen_players:
+        if not player_id:
             continue
 
-        seen_players.add(player_id)
         scanned_players.append(
             ScannedPlayerStat(
-                rank=len(scanned_players) + 1,
+                rank=index + 1,
                 player_id=player_id,
                 points=int(row["points"] or 0),
             )

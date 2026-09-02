@@ -36,6 +36,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -285,14 +286,9 @@ class MainActivity : AppCompatActivity() {
                             val rank = item.optInt("rank", index + 1)
                             val playerId = item.optString("player_id", "?").trim()
                             val points = item.optInt("points", 0)
+                            val rankText = String.format(Locale.US, "%02d", rank)
 
-                            append(rank)
-                            append(". ")
-                            append(playerId)
-                            append(" — ")
-                            append(points)
-                            append(" pkt")
-
+                            append(rankText)
                             if (index < scannedPlayers.length() - 1) {
                                 append("\n")
                             }
