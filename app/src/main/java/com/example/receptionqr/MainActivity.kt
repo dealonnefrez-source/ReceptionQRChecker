@@ -215,7 +215,19 @@ class MainActivity : AppCompatActivity() {
                         playSuccessEffect()
                     }
                     "already_used" -> {
-                        showResult("Kod był już skanowany", ERROR_RED)
+                        val duplicateText = buildString {
+                            append("Kod był już skanowany")
+                            if (points >= 0) {
+                                append("\n")
+                                append(points)
+                                append(" pkt")
+                            }
+                            if (rewardName.isNotBlank()) {
+                                append("\n")
+                                append(rewardName)
+                            }
+                        }
+                        showResult(duplicateText, ERROR_RED)
                         playDuplicateEffect()
                     }
                     else -> {
@@ -262,32 +274,35 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 val json = JSONObject(responseBody)
-                val redeemedCodesCount = json.optInt("redeemed_codes_count", 0)
-                val redeemedPointsTotal = json.optInt("redeemed_points_total", 0)
-                val totalScanAttempts = json.optInt("total_scan_attempts", 0)
-                val duplicateScanAttempts = json.optInt("duplicate_scan_attempts", 0)
-                val invalidScanAttempts = json.optInt("invalid_scan_attempts", 0)
+                val scannedPlayers = json.optJSONArray("scanned_players")
+
+                val statsMessage = if (scannedPlayers == null || scannedPlayers.length() == 0) {
+                    "Brak poprawnie zeskanowanych graczy."
+                } else {
+                    buildString {
+                        for (index in 0 until scannedPlayers.length()) {
+                            val item = scannedPlayers.getJSONObject(index)
+                            val rank = item.optInt("rank", index + 1)
+                            val playerId = item.optString("player_id", "?").trim()
+                            val points = item.optInt("points", 0)
+
+                            append(rank)
+                            append(". ")
+                            append(playerId)
+                            append(" — ")
+                            append(points)
+                            append(" pkt")
+
+                            if (index < scannedPlayers.length() - 1) {
+                                append("\n")
+                            }
+                        }
+                    }
+                }
 
                 AlertDialog.Builder(this@MainActivity)
-                    .setTitle("Statystyki skanów")
-                    .setMessage(
-                        buildString {
-                            append("Unikalnie zeskanowane kody: ")
-                            append(redeemedCodesCount)
-                            append("\n")
-                            append("Suma punktów: ")
-                            append(redeemedPointsTotal)
-                            append("\n")
-                            append("Wszystkie próby skanu: ")
-                            append(totalScanAttempts)
-                            append("\n")
-                            append("Duplikaty: ")
-                            append(duplicateScanAttempts)
-                            append("\n")
-                            append("Nieprawidłowe kody: ")
-                            append(invalidScanAttempts)
-                        }
-                    )
+                    .setTitle("Lista zeskanowanych graczy")
+                    .setMessage(statsMessage)
                     .setPositiveButton("OK", null)
                     .show()
 

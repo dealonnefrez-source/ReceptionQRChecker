@@ -90,12 +90,14 @@ class HealthResponse(BaseModel):
     database_backend: str
 
 
+class ScannedPlayerStat(BaseModel):
+    rank: int
+    player_id: str
+    points: int
+
+
 class ScanStatsResponse(BaseModel):
-    redeemed_codes_count: int
-    redeemed_points_total: int
-    total_scan_attempts: int
-    duplicate_scan_attempts: int
-    invalid_scan_attempts: int
+    scanned_players: list[ScannedPlayerStat]
 
 
 def now_iso() -> str:
@@ -193,37 +195,34 @@ def health() -> HealthResponse:
 @app.get("/api/stats", response_model=ScanStatsResponse)
 def get_scan_stats() -> ScanStatsResponse:
     with db_transaction() as connection:
-        qr_codes_stats = connection.execute(
+        valid_scans = connection.execute(
             text(
                 """
-                SELECT
-                    COUNT(*) AS redeemed_codes_count,
-                    COALESCE(SUM(points), 0) AS redeemed_points_total
-                FROM qr_codes
-                WHERE status = 'used'
-                """
-            )
-        ).mappings().one()
-
-        scan_logs_stats = connection.execute(
-            text(
-                """
-                SELECT
-                    COUNT(*) AS total_scan_attempts,
-                    COALESCE(SUM(CASE WHEN result = 'already_used' THEN 1 ELSE 0 END), 0) AS duplicate_scan_attempts,
-                    COALESCE(SUM(CASE WHEN result = 'invalid' THEN 1 ELSE 0 END), 0) AS invalid_scan_attempts
+                SELECT player_id, points
                 FROM scan_logs
+                WHERE result = 'valid'
+                ORDER BY scanned_at ASC, id ASC
                 """
             )
-        ).mappings().one()
+        ).mappings().all()
 
-    return ScanStatsResponse(
-        redeemed_codes_count=int(qr_codes_stats["redeemed_codes_count"]),
-        redeemed_points_total=int(qr_codes_stats["redeemed_points_total"]),
-        total_scan_attempts=int(scan_logs_stats["total_scan_attempts"]),
-        duplicate_scan_attempts=int(scan_logs_stats["duplicate_scan_attempts"]),
-        invalid_scan_attempts=int(scan_logs_stats["invalid_scan_attempts"]),
-    )
+    seen_players: set[str] = set()
+    scanned_players: list[ScannedPlayerStat] = []
+    for row in valid_scans:
+        player_id = str(row["player_id"]) if row["player_id"] is not None else ""
+        if not player_id or player_id in seen_players:
+            continue
+
+        seen_players.add(player_id)
+        scanned_players.append(
+            ScannedPlayerStat(
+                rank=len(scanned_players) + 1,
+                player_id=player_id,
+                points=int(row["points"] or 0),
+            )
+        )
+
+    return ScanStatsResponse(scanned_players=scanned_players)
 
 
 @app.post("/api/qr/issue", response_model=IssueQrResponse)
