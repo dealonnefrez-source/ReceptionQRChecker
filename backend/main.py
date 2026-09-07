@@ -202,7 +202,6 @@ def get_scan_stats() -> ScanStatsResponse:
                 SELECT player_id, points, scanned_at
                 FROM scan_logs
                                 WHERE result IN ('valid', 'already_used')
-                                    AND LOWER(TRIM(player_id)) <> 'player_001'
                 ORDER BY scanned_at ASC, id ASC
                 """
             )
