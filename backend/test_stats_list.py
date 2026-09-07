@@ -40,13 +40,21 @@ class StatsListTests(unittest.TestCase):
             "reward_name": "Nagroda 2",
             "match_id": "match_02",
         })
+        excluded = client.post("/api/qr/issue", json={
+            "player_id": "player_001",
+            "points": 100,
+            "reward_name": "Przykładowa nagroda",
+            "match_id": "match_example",
+        })
 
         first_code = first.json()["code"]
         second_code = second.json()["code"]
+        excluded_code = excluded.json()["code"]
 
         client.post("/api/qr/redeem", json={"code": first_code, "staff_id": "recepcja_1"})
         client.post("/api/qr/redeem", json={"code": first_code, "staff_id": "recepcja_1"})
         client.post("/api/qr/redeem", json={"code": second_code, "staff_id": "recepcja_1"})
+        client.post("/api/qr/redeem", json={"code": excluded_code, "staff_id": "recepcja_1"})
 
         response = client.get("/api/stats")
         self.assertEqual(response.status_code, 200)
@@ -59,10 +67,11 @@ class StatsListTests(unittest.TestCase):
         self.assertNotIn("redeemed_points_total", payload)
 
         players = payload["scanned_players"]
-        self.assertEqual([entry["rank"] for entry in players], [1, 2, 3])
-        self.assertEqual([entry["player_id"] for entry in players], ["player_01", "player_01", "player_02"])
-        self.assertEqual([entry["points"] for entry in players], [50, 50, 30])
-        self.assertEqual(len(players), 3)
+        self.assertEqual([entry["rank"] for entry in players], [1, 2])
+        self.assertEqual([entry["player_id"] for entry in players], ["player_01", "player_02"])
+        self.assertEqual([entry["points"] for entry in players], [50, 30])
+        self.assertTrue(all(entry["scanned_at"] for entry in players))
+        self.assertEqual(len(players), 2)
 
 
 if __name__ == "__main__":

@@ -94,6 +94,7 @@ class ScannedPlayerStat(BaseModel):
     rank: int
     player_id: str
     points: int
+    scanned_at: str
 
 
 class ScanStatsResponse(BaseModel):
@@ -198,9 +199,10 @@ def get_scan_stats() -> ScanStatsResponse:
         valid_scans = connection.execute(
             text(
                 """
-                SELECT player_id, points
+                SELECT player_id, points, scanned_at
                 FROM scan_logs
-                WHERE result = 'valid'
+                                WHERE result = 'valid'
+                                    AND LOWER(TRIM(player_id)) <> 'player_001'
                 ORDER BY scanned_at ASC, id ASC
                 """
             )
@@ -217,6 +219,7 @@ def get_scan_stats() -> ScanStatsResponse:
                 rank=index + 1,
                 player_id=player_id,
                 points=int(row["points"] or 0),
+                scanned_at=str(row["scanned_at"]),
             )
         )
 

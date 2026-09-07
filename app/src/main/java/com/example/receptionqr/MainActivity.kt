@@ -36,6 +36,9 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.ExecutorService
@@ -284,11 +287,16 @@ class MainActivity : AppCompatActivity() {
                         for (index in 0 until scannedPlayers.length()) {
                             val item = scannedPlayers.getJSONObject(index)
                             val rank = item.optInt("rank", index + 1)
-                            val playerId = item.optString("player_id", "?").trim()
                             val points = item.optInt("points", 0)
+                            val scannedAt = item.optString("scanned_at", "")
                             val rankText = String.format(Locale.US, "%02d", rank)
+                            val scannedAtText = formatScanDate(scannedAt)
 
                             append(rankText)
+                            append(". ")
+                            append(points)
+                            append(" pkt - ")
+                            append(scannedAtText)
                             if (index < scannedPlayers.length() - 1) {
                                 append("\n")
                             }
@@ -307,6 +315,16 @@ class MainActivity : AppCompatActivity() {
                 Log.e("QR", "Błąd pobierania statystyk", exception)
                 showResult("Nie udało się pobrać statystyk", ERROR_RED)
             }
+        }
+    }
+
+    private fun formatScanDate(scannedAt: String): String {
+        return try {
+            DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm", Locale.getDefault())
+                .withZone(ZoneId.systemDefault())
+                .format(Instant.parse(scannedAt))
+        } catch (_: Exception) {
+            scannedAt
         }
     }
 
