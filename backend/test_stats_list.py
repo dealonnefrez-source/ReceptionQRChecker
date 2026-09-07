@@ -52,9 +52,12 @@ class StatsListTests(unittest.TestCase):
         excluded_code = excluded.json()["code"]
 
         client.post("/api/qr/redeem", json={"code": first_code, "staff_id": "recepcja_1"})
-        client.post("/api/qr/redeem", json={"code": first_code, "staff_id": "recepcja_1"})
+        duplicate = client.post("/api/qr/redeem", json={"code": first_code, "staff_id": "recepcja_1"})
         client.post("/api/qr/redeem", json={"code": second_code, "staff_id": "recepcja_1"})
         client.post("/api/qr/redeem", json={"code": excluded_code, "staff_id": "recepcja_1"})
+
+        self.assertEqual(duplicate.json()["status"], "already_used")
+        self.assertTrue(duplicate.json()["scanned_at"])
 
         response = client.get("/api/stats")
         self.assertEqual(response.status_code, 200)

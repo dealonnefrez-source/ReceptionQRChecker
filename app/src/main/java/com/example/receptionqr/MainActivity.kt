@@ -200,6 +200,7 @@ class MainActivity : AppCompatActivity() {
                 val message = json.optString("message", "Brak informacji")
                 val points = json.optInt("points", -1)
                 val rewardName = json.optString("reward_name", "")
+                val scannedAt = json.optString("scanned_at", "")
 
                 when (status) {
                     "valid" -> {
@@ -229,6 +230,10 @@ class MainActivity : AppCompatActivity() {
                             if (rewardName.isNotBlank()) {
                                 append("\n")
                                 append(rewardName)
+                            }
+                            if (scannedAt.isNotBlank()) {
+                                append("\nSkan: ")
+                                append(formatScanDate(scannedAt))
                             }
                         }
                         showResult(duplicateText, ERROR_RED)

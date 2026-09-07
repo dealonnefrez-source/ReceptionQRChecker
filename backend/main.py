@@ -70,6 +70,7 @@ class QrResponse(BaseModel):
     reward_name: str | None = None
     match_id: str | None = None
     used_at: str | None = None
+    scanned_at: str | None = None
     used_by: str | None = None
     scan_count: int | None = None
 
@@ -301,6 +302,7 @@ def redeem_qr(request: RedeemQrRequest) -> QrResponse:
                 status="invalid",
                 message="Nieprawidłowy kod",
                 code=request.code,
+                scanned_at=scanned_at,
             )
 
         scan_count = int(row["scan_count"]) + 1
@@ -368,6 +370,7 @@ def redeem_qr(request: RedeemQrRequest) -> QrResponse:
         reward_name=row["reward_name"],
         match_id=row["match_id"],
         used_at=row["used_at"] or scanned_at,
+        scanned_at=scanned_at,
         used_by=row["used_by"] or request.staff_id,
         scan_count=scan_count,
     )
