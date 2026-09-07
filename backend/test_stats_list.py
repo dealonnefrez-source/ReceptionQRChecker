@@ -25,7 +25,7 @@ class StatsListTests(unittest.TestCase):
             connection.execute(text("DELETE FROM qr_codes"))
             connection.execute(text("DELETE FROM scan_logs"))
 
-    def test_stats_returns_every_scanned_player(self):
+    def test_stats_returns_only_first_valid_scan_per_code(self):
         client = TestClient(main.app)
 
         first = client.post("/api/qr/issue", json={
@@ -67,11 +67,11 @@ class StatsListTests(unittest.TestCase):
         self.assertNotIn("redeemed_points_total", payload)
 
         players = payload["scanned_players"]
-        self.assertEqual([entry["rank"] for entry in players], [1, 2, 3, 4])
-        self.assertEqual([entry["player_id"] for entry in players], ["player_01", "player_01", "player_02", "player_001"])
-        self.assertEqual([entry["points"] for entry in players], [50, 50, 30, 100])
+        self.assertEqual([entry["rank"] for entry in players], [1, 2, 3])
+        self.assertEqual([entry["player_id"] for entry in players], ["player_01", "player_02", "player_001"])
+        self.assertEqual([entry["points"] for entry in players], [50, 30, 100])
         self.assertTrue(all(entry["scanned_at"] for entry in players))
-        self.assertEqual(len(players), 4)
+        self.assertEqual(len(players), 3)
 
 
 if __name__ == "__main__":
